@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>插件业务效率看板 · Plugin Business Board</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --primary:#1890ff; --success:#52c41a; --warning:#faad14; --danger:#ff4d4f; --text:#1f1f1f; --sub:#666; --border:#e8e8e8; --radius:10px; }
+*{ margin:0; padding:0; box-sizing:border-box; }
+body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+.header{ background:linear-gradient(135deg,#1a1a2e,#0f3460); color:#fff; padding:22px 32px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.header h1{ font-size:22px; font-weight:600; }
+.header .sub{ font-size:13px; opacity:.75; margin-top:4px; }
+.header .meta{ text-align:right; font-size:12px; opacity:.8; }
+.header .meta div{ margin-top:2px; }
+.container{ max-width:1480px; margin:0 auto; padding:20px 24px 40px; }
+.module{ margin-bottom:26px; }
+.module-title{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.module-title .m-num{ font-size:20px; font-weight:800; color:var(--primary); background:#e6f7ff; border-radius:8px; padding:2px 10px; }
+.module-title .m-name{ font-size:17px; font-weight:700; }
+.module-title .m-desc{ font-size:12px; color:#999; }
+#kpiRow{ display:flex; flex-direction:column; gap:16px; }
+.kpi-zone-row{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:800px){ .kpi-zone-row{ grid-template-columns:1fr; } }
+.kpi-zone{ background:var(--card); border-radius:var(--radius); padding:14px 18px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.zone-label{ font-size:12px; font-weight:700; margin-bottom:12px; padding-left:8px; border-left:3px solid #bbb; color:#555; }
+.zone-label span{ font-weight:400; color:#999; font-size:11px; margin-left:6px; }
+.zone-label.past{ border-left-color:var(--primary); color:var(--primary); }
+.zone-label.now{ border-left-color:#722ed1; color:#722ed1; }
+.zone-label.future{ border-left-color:#13c2c2; color:#13c2c2; }
+.kpi-row{ display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+.kpi-zone .kpi-row{ grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); }
+@media(max-width:1100px){ .kpi-row{ grid-template-columns:repeat(3,1fr);} }
+@media(max-width:600px){ .kpi-row{ grid-template-columns:repeat(2,1fr);} }
+.kpi{ background:var(--card); border-radius:var(--radius); padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,.07); border-top:3px solid var(--primary); }
+.kpi.green{ border-top-color:var(--success);} .kpi.orange{ border-top-color:var(--warning);} .kpi.red{ border-top-color:var(--danger);} .kpi.purple{ border-top-color:#722ed1;} .kpi.cyan{ border-top-color:#13c2c2;}
+.kpi .k-label{ font-size:12px; color:var(--sub); display:flex; justify-content:space-between; }
+.kpi .k-label .k-icon{ font-size:16px; }
+.kpi .k-value{ font-size:30px; font-weight:800; margin:6px 0 2px; }
+.kpi .k-sub{ font-size:11px; color:#999; }
+.kpi .k-note{ color:#999; font-weight:normal; }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+@media(max-width:1100px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+.card{ background:var(--card); border-radius:var(--radius); padding:18px 22px; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+.card h4{ font-size:14px; font-weight:600; margin-bottom:4px; }
+.card .c-desc{ font-size:11px; color:#999; margin-bottom:12px; }
+.cv{ position:relative; height:280px; }
+.cv.tall{ height:340px; } .cv.small{ height:220px; }
+.kanban-col{ background:#fafafa; border-radius:8px; padding:10px; min-width:170px; }
+.kb-header{ font-size:12px; font-weight:700; padding:6px 10px; border-radius:6px; margin-bottom:10px; text-align:center; display:flex; justify-content:center; gap:6px; align-items:center; }
+.kb-header .cnt{ background:rgba(0,0,0,.08); border-radius:10px; padding:0 7px; font-size:11px; }
+.kb-header.review{ background:#e6f7ff; color:#096dd9;} .kb-header.eco{ background:#f0f5ff; color:#2f54eb;}
+.kb-header.qa{ background:#e6fffb; color:#08979c;} .kb-header.accept{ background:#f9f0ff; color:#531dab;}
+.kb-header.plan{ background:#fff7e6; color:#d46b08;} .kb-header.dev{ background:#fff1f0; color:#cf1322;}
+.kb-header.other{ background:#f6ffed; color:#389e0d;} .kb-header.up{ background:#ffe7ba; color:#ad4e00;}
+.kb-header.done{ background:#f6ffed; color:#389e0d;}
+.kb-item{ background:#fff; border:1px solid var(--border); border-left:3px solid var(--primary); border-radius:6px; padding:8px 10px; margin-bottom:8px; font-size:12px; }
+.kb-item.p0{ border-left-color:#cf1322;} .kb-item.p1{ border-left-color:#fa8c16;} .kb-item.p2{ border-left-color:#52c41a;}
+.kb-item .kb-title{ font-weight:600; font-size:12.5px; margin-bottom:4px; line-height:1.4; }
+.kb-item .kb-meta{ display:flex; justify-content:space-between; color:#999; font-size:10.5px; gap:6px; }
+.kb-item .kb-meta .risk-hi{ color:var(--danger); font-weight:700; }
+.kb-item .kb-type{ display:inline-block; font-size:10px; padding:1px 6px; border-radius:3px; background:#f0f0f0; color:#666; margin-right:4px; }
+.kanban-history{ margin-top:12px; padding:10px 12px; background:#f6ffed; border:1px solid #b7eb8f; border-radius:6px; font-size:12.5px; color:#333; line-height:1.6; }
+.tbl-wrap{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+th{ text-align:left; padding:9px 12px; background:#fafafa; font-weight:600; color:var(--sub); border-bottom:2px solid var(--border); white-space:nowrap; }
+td{ padding:9px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+tr:hover td{ background:#fafafa; }
+.badge{ display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.badge.hi{ background:#fff1f0; color:#cf1322;} .badge.mid{ background:#fff7e6; color:#d46b08;} .badge.low{ background:#f6ffed; color:#389e0d;} .badge.test{ background:#f0f0f0; color:#999;}
+.aging-cri{ color:var(--danger); font-weight:700;} .aging-warn{ color:#fa8c16; font-weight:600;}
+.filters{ background:var(--card); border-radius:var(--radius); padding:12px 20px; box-shadow:0 1px 3px rgba(0,0,0,.07); margin-bottom:24px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.filters label{ font-size:12px; color:var(--sub); }
+.filters select{ padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-size:12.5px; outline:none; background:#fff; }
+.filters select:focus{ border-color:var(--primary); }
+.filters .src{ margin-left:auto; font-size:11px; color:#bbb; }
+.formula{ background:linear-gradient(90deg,#e6f7ff,#f0f5ff); border:1px dashed #91caff; border-radius:8px; padding:8px 16px; font-size:13px; color:#096dd9; margin-bottom:14px; font-weight:600; }
+.formula span{ color:var(--sub); font-weight:400; }
+.conc-box{ background:linear-gradient(90deg,#f6ffed,#fcffe6); border:1px solid #b7eb8f; border-radius:8px; padding:12px 16px; margin-top:4px; }
+.conc-box .conc-head{ font-size:13px; font-weight:700; color:#389e0d; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.conc-box .conc-tag{ font-size:11px; font-weight:600; color:#52c41a; border:1px solid #b7eb8f; border-radius:10px; padding:1px 8px; }
+.conc-box .conc-body{ font-size:13px; color:#3a4a3a; line-height:1.7; }
+.tag-toggle{ display:flex; gap:8px; }
+.tag-toggle button{ border:1px solid var(--border); background:#fff; border-radius:16px; padding:4px 14px; font-size:12px; cursor:pointer; }
+.tag-toggle button.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+.diff-filter{ background:var(--card); border-radius:var(--radius); padding:10px 20px; box-shadow:0 1px 3px rgba(0,0,0,.07); margin-bottom:14px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.diff-filter .df-label{ font-size:12px; color:var(--sub); font-weight:600; }
+.refresh-btn{ background:linear-gradient(135deg,#1890ff,#096dd9); color:#fff; border:none; border-radius:20px; padding:8px 24px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 2px 6px rgba(24,144,255,.35); transition:opacity .2s, transform .1s; }
+.refresh-btn:hover{ opacity:.9; }
+.refresh-btn:active{ transform:scale(.97); }
+.refresh-btn:disabled{ opacity:.55; cursor:not-allowed; }
+.refresh-status{ margin-left:10px; font-size:12px; color:#999; }
+.kb-overdue{ border:2px solid #ff4d4f !important; background:#fff1f0 !important; box-shadow:0 0 0 2px rgba(255,77,79,.15); }
+.sched-scroll{ overflow-x:auto; }
+.sched-row{ display:grid; gap:0; min-width:760px; }
+.sched-cell{ padding:8px 12px; font-size:12px; }
+.sched-name{ background:#fafafa; border-right:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sched-cnt{ display:inline-block; background:rgba(0,0,0,.06); border-radius:10px; padding:0 6px; font-size:10px; margin-left:6px; }
+.sched-bar{ position:absolute; top:13px; height:15px; border-radius:4px; background:linear-gradient(135deg,#1890ff,#69c0ff); box-shadow:0 1px 2px rgba(24,144,255,.3); }
+.sched-bar.doing{ background:linear-gradient(135deg,#fa8c16,#ffc069); box-shadow:0 1px 2px rgba(250,140,22,.4); }
+.sched-bar.done{ background:#d9d9d9; box-shadow:none; }
+.sched-legend{ display:flex; gap:16px; font-size:11px; color:#666; flex-wrap:wrap; }
+.sched-legend .lg{ display:inline-flex; align-items:center; gap:5px; }
+.sched-legend .sw{ width:14px; height:10px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔌 插件业务效率看板</h1>
+    <div class="sub">TAPD Workspace 70186503 · 数据源：插件甘特图</div>
+  </div>
+  <div class="meta">
+    <div>更新于 <span id="updateTime">--</span></div>
+    <div id="dataNote" style="max-width:420px;text-align:right;">数据口径：加载中…</div>
+  </div>
+</div>
+
+<div class="container">
+
+
+
+  <!-- M1 效率驾驶舱（整体） -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M1</span><span class="m-name">整体效率驾驶舱</span><span class="m-desc">插件引入整体效率核心指标 · 随筛选联动</span></div>
+    <div class="kpi-row" id="kpiRow"></div>
+  </div>
+
+  <!-- M2 产能与流动（整体 CFD） -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M2</span><span class="m-name">产能与流动</span><span class="m-desc">随时间看创建 / 发布 / 进行中趋势 —— 判断积压与流动节奏</span></div>
+    <div class="formula">
+      📈 CFD（Cumulative Flow Diagram，累积流量图）怎么读：<span>「创建-累计」与「发布-累计」两条线之间的垂直间距 = 在制品积压规模 —— 间距持续拉大说明积压加剧、交付吃紧；曲线斜率 = 流速，越陡说明流动越快，越平说明交付放缓</span><br>
+      📊 流入 vs 交付怎么读：<span>当周新建（蓝柱）高于发布（绿柱）说明积压净增；绿柱盖过蓝柱说明积压在消化 —— 连续多周倒挂，交付瓶颈正在形成</span>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h4>📈 累积流量图 CFD（按周）</h4>
+        <div class="c-desc">创建数量累计 / 发布数量累计 / 进行中数量 —— 三条线间距=积压规模，斜率=流速</div>
+        <div class="cv tall"><canvas id="cfdChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h4>📊 流入 vs 交付（按周）</h4>
+        <div class="c-desc">每周新建与已发布对比 —— 流入 &gt; 交付 说明积压加剧</div>
+        <div class="cv tall"><canvas id="flowChart"></canvas></div>
+      </div>
+    </div>
+    <div class="conc-box">
+      <div class="conc-head">📌 结论 <span class="conc-tag">实时计算</span></div>
+      <div class="conc-body" id="cfdConclusion">正在计算…</div>
+    </div>
+  </div>
+
+  <!-- M3 整体交付周期与各环节度量 -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M3</span><span class="m-name">交付周期与各环节度量</span><span class="m-desc">整体引入效率的核心 —— 交付要多久、卡在哪个环节 · 按需求难易程度区分统计</span></div>
+    <div class="diff-filter">
+      <span class="df-label">需求难易程度</span>
+      <div class="tag-toggle" id="diffFilter">
+        <button data-v="全部" class="active">全部</button>
+        <button data-v="复杂">复杂</button>
+        <button data-v="一般">一般</button>
+        <button data-v="简单">简单</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h4>⏱ 交付周期分析（进入质量评测 → 已发布 · P95）</h4>
+        <div class="c-desc">横轴按周 · 数轴为已发布需求交付周期 P95 值 · 虚线为对应难易程度的交付周期基线（复杂 36 天 / 一般 29 天 / 简单 22 天）</div>
+        <div id="cycleNote" class="c-desc" style="color:#fa8c16;"></div>
+        <div class="cv tall"><canvas id="cycleChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h4>🔍 各环节耗时分布（按状态流转时间戳）</h4>
+        <div class="c-desc">已发布需求在各状态的耗时 P95 · 待研发实现阈值按难度（复杂 21 天 / 一般 14 天 / 简单 7 天），其余环节阈值不变，超预期标红</div>
+        <div id="stageNote" class="c-desc" style="color:#fa8c16;"></div>
+        <div class="cv tall"><canvas id="stageChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- M4 插件工作流运营看板 -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M4</span><span class="m-name">插件工作流运营看板</span><span class="m-desc">当前在制品全景 · 9 阶段插件工作流 · 直接支撑站会</span></div>
+    <div class="card">
+      <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;" id="kanbanBoard"></div>
+      <div class="kanban-history" id="kanbanHistory"></div>
+    </div>
+  </div>
+
+  <!-- M5 插件类型引入效率（细分）—— 已隐藏，需要时恢复 -->
+  <div class="module" id="moduleM5" style="display:none;">
+    <div class="module-title"><span class="m-num">M5</span><span class="m-name">插件类型引入效率分析</span><span class="m-desc">按插件类型细分引入效率 —— 「引入什么类型的插件最耗时」</span></div>
+    <div class="grid2">
+      <div class="card">
+        <h4>🔌 各插件类型需求分布</h4>
+        <div class="c-desc">策略不可复用 = 需新开发策略（成本最高） · 策略可复用 = 复用已有策略（最快）</div>
+        <div class="cv tall"><canvas id="typeDistChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h4>🧊 插件类型 × 工作流进度</h4>
+        <div class="c-desc">堆叠柱状图：每根柱子=一种插件类型，柱高=该类型当前在制需求的堆积量（越高说明该类型引入越慢），各色段=需求当前所处阶段</div>
+        <div class="cv tall"><canvas id="typeFlowChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- M6 质量与准时 -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M6</span><span class="m-name">质量与准时性</span><span class="m-desc">流程返工与风险清单</span></div>
+    <div class="grid2">
+      <div class="card">
+        <h4>🔁 流程返工 / 打回明细</h4>
+        <div class="c-desc">状态回流的插件需求 —— 列出从哪个环节回流到哪个环节、共几次（基于 life_times 主链流转检测）</div>
+        <div style="height:240px;overflow-y:auto;" id="reworkList"></div>
+      </div>
+      <div class="card">
+        <h4>🚨 风险清单</h4>
+        <div class="c-desc">有截止日期且未完成、即将到期或已逾期的需求</div>
+        <div class="cv" style="height:240px;overflow-y:auto;" id="riskList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- M7 人员负载 -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">M7</span><span class="m-name">人员负载</span><span class="m-desc">按需求单四字段挂载统计 · 识别单点瓶颈</span></div>
+    <div class="card">
+      <h4>⚖️ 人员负载 TOP</h4>
+      <div class="c-desc">按需求单上「插件产品 / 算法 / 生态 / 工程」四个挂载字段统计每人涉及的需求数 —— 红色=超载预警</div>
+      <div class="cv tall"><canvas id="personChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- A 人员闲忙图（task 排期池） -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">A</span><span class="m-name">人员闲忙图</span><span class="m-desc">仅统计 task 任务 · 排除已完成 · 左侧人员、顶部时间轴（按周显示 + 按天竖线），横条=排期时间段，留白=空闲</span></div>
+    <div class="card">
+      <div class="c-desc" id="scheduleNote">加载中…</div>
+      <div id="scheduleGantt" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- B 需求明细（操作层） -->
+  <div class="module">
+    <div class="module-title"><span class="m-num">B</span><span class="m-name">需求明细（操作层）</span><span class="m-desc">插件需求明细</span></div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>标题</th><th>插件类型</th><th>状态</th><th>创建人</th><th>创建时间</th>
+            <th>优先级</th><th>开始/截止</th><th>进度</th><th>实际发布时间</th><th>发布状态</th>
+          </tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:18px 10px;color:#bbb;font-size:12px;">
+    <div>
+      插件业务效率看板 v4.0 · 统计口径：仅插件类需求（已排除测试需求） · 插件工作流 9 阶段
+    </div>
+    <div style="margin-top:14px;">
+      <button id="refreshBtn" class="refresh-btn">🔄 刷新数据</button>
+      <span id="refreshStatus" class="refresh-status"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   TAPD 甘特图视图数据（query_token: d7c350b0d39b35ea725b5023bddffecd）
+   过滤规则：
+     1) 仅统计 插件需求（workitem_type_id=1070186503000748567）
+     2) 剔除 task 任务（本数据源为 story，task 不参与统计）
+     3) 剔除 Feature 研发类（workitem_type_id=1070186503000640155）
+   插件工作流（9 阶段）：
+     需求评审中 → 待生态引入 → 质量评测中 → 产研验收中 → 执行方案中
+     → 待研发实现 → 待其他评估 → 评估完成待上线 → 已发布
+   ============================================================ */
+const WORKFLOW = ['需求评审中','待生态引入','质量评测中','产研验收中','执行方案中','待研发实现','待其他评估','评估完成待上线','已发布'];
+const STYLE = {
+  '需求评审中':    {bg:'#e6f7ff', fg:'#096dd9'},
+  '待生态引入':    {bg:'#f0f5ff', fg:'#2f54eb'},
+  '质量评测中':    {bg:'#e6fffb', fg:'#08979c'},
+  '产研验收中':    {bg:'#f9f0ff', fg:'#531dab'},
+  '执行方案中':    {bg:'#fff7e6', fg:'#d46b08'},
+  '待研发实现':    {bg:'#fff1f0', fg:'#cf1322'},
+  '待其他评估':    {bg:'#f6ffed', fg:'#389e0d'},
+  '评估完成待上线':{bg:'#ffe7ba', fg:'#ad4e00'},
+  '已发布':        {bg:'#f6ffed', fg:'#389e0d'},
+};
+const TYPE_COLORS = {
+  '新接口-策略不可复用':'#ff7875',
+  '新接口-策略可复用':'#52c41a',
+  '数据类插件':'#722ed1',
+  '关系表类插件':'#13c2c2',
+};
+const CYCLETARGET = 14; // 交付周期目标（天）
+/* 需求难易程度分类与交付周期基线 */
+const DIFFICULTY = ['复杂','一般','简单'];
+const DIFF_BASELINE = { '复杂':36, '一般':29, '简单':22 };
+const DIFF_COLOR = { '复杂':'#ff4d4f', '一般':'#faad14', '简单':'#52c41a' };
+/* 各环节预期时限（天）：超过则标记超时（待研发实现按难度区分，见 stageExpect） */
+const EXPECT_DAYS = { '质量评测中':6, '产研验收中':2, '执行方案中':1, '待其他评估':1 };
+const DIFF_DEV_DAYS = { '复杂':21, '一般':14, '简单':7 };  // 待研发实现阈值按难度
+function stageExpect(st, diff){
+  if(st==='待研发实现') return DIFF_DEV_DAYS[diff] || 14;
+  return EXPECT_DAYS[st];
+}
+function expectLabel(st, diff){
+  const d = stageExpect(st, diff);
+  if(st==='待研发实现') return `${d} 天`;
+  return `T+${d}`;
+}
+
+/* M3 示例数据：真实已发布样本不足时用于效果演示（页面上会标注"示例数据"） */
+const MOCK_STAGE_DAYS = { '需求评审中':2.8, '待生态引入':3.6, '质量评测中':7.5, '产研验收中':1.5, '执行方案中':0.9, '待研发实现':24.0, '待其他评估':2.2, '评估完成待上线':1.1 };
+const MOCK_CYCLE = [
+  { name:'企业供应商与客户查询', d:9 },
+  { name:'企业招投标查询', d:12 },
+  { name:'企业信息综合查询插件', d:16 },
+  { name:'新增区域搜索插件', d:24 },
+  { name:'测试关系表类需求', d:21 },
+];
+
+/* 内置兜底数据（8 条业务插件需求，来自甘特图视图，已排除测试需求）；页面加载后由 life_metrics.json 的 stories 动态覆盖 */
+let STORIES = [
+  {id:'1070186503137146500', name:'企业供应商与客户查询', type:'新接口-策略不可复用', status:'质量评测中', difficulty:'复杂', creator:'jariszhu', created:'2026-08-14', product:'jariszhu', algo:'markcsjiang;zinnazhang', eco:'shadowtwang', eng:'brollanli;huaczhang', test:false},
+  {id:'1070186503137146446', name:'企业招投标查询', type:'新接口-策略不可复用', status:'质量评测中', difficulty:'复杂', creator:'jariszhu', created:'2026-08-14', product:'jariszhu', algo:'markcsjiang;zinnazhang', eco:'shadowtwang', eng:'brollanli;huaczhang', test:false},
+  {id:'1070186503137146381', name:'企业股权关系查询', type:'新接口-策略不可复用', status:'质量评测中', difficulty:'一般', creator:'jariszhu', created:'2026-08-14', product:'jariszhu', algo:'markcsjiang;zinnazhang', eco:'shadowtwang', eng:'brollanli;huaczhang', test:false},
+  {id:'1070186503137146213', name:'企业关联关系查询', type:'新接口-策略不可复用', status:'质量评测中', difficulty:'一般', creator:'jariszhu', created:'2026-08-14', product:'jariszhu', algo:'markcsjiang;zinnazhang', eco:'shadowtwang', eng:'brollanli;huaczhang', test:false},
+  {id:'1070186503137063751', name:'医院推荐有来医生插件接入需求', type:'数据类插件', status:'待研发实现', difficulty:'复杂', creator:'henryahuang', created:'2026-08-12', product:'henryahuang', algo:'markcsjiang', eco:'tinatttu', eng:'brollanli;haoranyu', progress:'4', test:false},
+  {id:'1070186503137052226', name:'亚运会咪咕插件接入需求', type:'新接口-策略可复用', status:'需求评审中', difficulty:'简单', creator:'chunxiaoliu', created:'2026-08-11', product:'chunxiaoliu', algo:'markcsjiang', eco:'tinatttu', eng:'brollanli', test:false},
+  {id:'1070186503136594077', name:'企业信息综合查询插件', type:'新接口-策略不可复用', status:'质量评测中', difficulty:'复杂', creator:'jariszhu', created:'2026-07-29', begin:'2026-07-23', due:'2026-08-17', algo:'zinnazhang', eng:'huaczhang', progress:'54', test:false},
+  {id:'1070186503136586339', name:'新增区域搜索插件', type:'新接口-策略不可复用', status:'执行方案中', difficulty:'一般', creator:'chunxiaoliu', created:'2026-07-29', begin:'2026-07-28', due:'2026-08-14', product:'chunxiaoliu', algo:'lightwwang', eco:'shadowtwang', eng:'brollanli', progress:'46', test:false},
+];
+
+/* 全局状态 */
+let diffFilter = '全部';  // 全部 | 复杂 | 一般 | 简单
+let now = new Date();  // 动态当前时间（每次刷新时重新计算）
+/* P95 计算（线性插值法） */
+function p95(arr){
+  if(!arr || !arr.length) return 0;
+  const s = arr.slice().sort((a,b)=>a-b);
+  const idx = (s.length-1) * 0.95;
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if(lo===hi) return s[lo];
+  return Math.round((s[lo] + (s[hi]-s[lo])*(idx-lo))*10)/10;
+}
+let LIFE = null;  // life_metrics.json（状态流转时间戳精确数据），fetch 加载后填充
+let TASKS = null; // tasks_data.json（task 排期池数据），fetch 加载后填充
+function daysBetween(a, b){ return Math.max(0, Math.round((new Date(b) - new Date(a))/86400000)); }
+function inWeek(dateStr, wk){ return dateStr >= wk.start && dateStr <= wk.end; }
+/* 状态流转口径：需求 sid 在环节 st 的停留天数（来自 life_times 流转时间戳） */
+function stageStayDays(sid, st){
+  const info = LIFE && LIFE.per_story ? LIFE.per_story[sid] : null;
+  if(!info || !info.stages || info.stages[st]==null) return 0;
+  return info.stages[st]/24;
+}
+/* 交付周期（天）：优先 进入质量评测中→进入已发布（流转时间戳自然日差），降级 创建 → 完成 */
+function cycleDays(s){
+  const info = LIFE && LIFE.per_story ? LIFE.per_story[s.id] : null;
+  if(info && info.eval_to_publish_days>0) return info.eval_to_publish_days;
+  if(s.created && s.completed) return daysBetween(s.created, s.completed);
+  return 0;
+}
+
+/* 周桶：动态生成，跟随真实日期滚动（最后一项 = 本周，周一为一周起点） */
+function fmtDate(d){
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function mondayOf(d){
+  const dt = new Date(d);
+  const wd = dt.getDay();          // 0=周日 1=周一 … 6=周六
+  const diff = wd===0 ? -6 : 1-wd; // 回退到本周一
+  dt.setDate(dt.getDate()+diff);
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+function buildWeeks(count=5){
+  const weeks = [];
+  const thisMon = mondayOf(new Date());
+  for(let i=count-1; i>=0; i--){
+    const start = new Date(thisMon);
+    start.setDate(start.getDate() - i*7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const sl = fmtDate(start).slice(5), el = fmtDate(end).slice(5);
+    const label = sl.slice(0,2)===el.slice(0,2) ? `${sl}~${el.slice(3)}` : `${sl}~${el}`;
+    weeks.push({ label, start: fmtDate(start), end: fmtDate(end) });
+  }
+  return weeks;
+}
+let WEEKS = buildWeeks(5);
+
+function getFiltered(){
+  return STORIES;
+}
+
+/* ============ M1 整体效率驾驶舱 ============ */
+function renderKPI(stories){
+  const done = stories.filter(s=>s.status==='已发布');
+  const active = stories.filter(s=>s.status!=='已发布');
+  // 交付周期 P95（已发布样本：进入插件流程→发布，基于状态流转时间戳）
+  const cycles = done.map(s=>cycleDays(s)).filter(d=>d>0);
+  const p95Cycle = p95(cycles);
+  const wip = active.length;
+  const nearDue = stories.filter(s=>s.due && s.status!=='已发布').filter(s=>{ const d=daysBetween(now, s.due); return d>=0 && d<=7; }).length;
+  // 累计逾期发布：已发布需求中，实际发布时间晚于截止时间（发布延迟）
+  const overdue = done.filter(s=>s.due && s.completed && new Date(s.completed)>new Date(s.due)).length;
+  // 本周发布（08-10~16 发布的）—— 当下
+  const wkThroughput = done.filter(s=>s.completed && inWeek(s.completed, WEEKS[4])).length;
+
+  const kpi = (icon, label, value, sub, cls='') => `
+    <div class="kpi ${cls}">
+      <div class="k-label"><span>${label}</span><span class="k-icon">${icon}</span></div>
+      <div class="k-value">${value}</div>
+      <div class="k-sub">${sub}</div>
+    </div>`;
+
+  // 过去时间指标
+  const overduePct = done.length ? Math.round(overdue/done.length*100) : 0;
+  const pastCards =
+    kpi('📦','插件需求总数', stories.length, '插件需求总数 = 在制品 WIP + 已发布') +
+    kpi('🔄','在制品 WIP', wip, '进行中（未发布）', 'cyan') +
+    kpi('✅','已发布', done.length, stories.length?`占比 ${(done.length/stories.length*100).toFixed(0)}%`:'', 'green') +
+    kpi('⏱️','交付周期 P95', cycles.length?p95Cycle+'天':'-', '<span class="k-note">交付周期=质量评测中→已发布</span>' + (cycles.length?'<br>目标基线 30 天':'<br>暂无真实样本')) +
+    kpi('⏰','累计逾期发布', overdue, `占比 ${overduePct}% · 逾期发布数/累计发布数`, overdue>0?'red':'orange');
+
+  // 当下时间指标
+  const nowCards =
+    kpi('📥','本周发布', wkThroughput+' 个', `本周（${WEEKS[4].label}）已发布`, 'purple');
+
+  // 未来时间指标
+  const futureCards =
+    kpi('🗓️','未来一周待发布', nearDue, '近 7 天到期且未完成', 'cyan');
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-zone">
+      <div class="zone-label past">全局总览 <span>累计口径</span></div>
+      <div class="kpi-row">${pastCards}</div>
+    </div>
+    <div class="kpi-zone-row">
+      <div class="kpi-zone">
+        <div class="zone-label now">本周切片 <span>本周口径</span></div>
+        <div class="kpi-row">${nowCards}</div>
+      </div>
+      <div class="kpi-zone">
+        <div class="zone-label future">未来一周计划 <span>未来口径</span></div>
+        <div class="kpi-row">${futureCards}</div>
+      </div>
+    </div>`;
+}
+
+/* ============ M2 产能与流动（CFD） ============ */
+function renderCFDChart(){
+  const labels = WEEKS.map(w=>w.label);
+  const cumCreate = [], cumDone = [], wip = [];
+  let cc = 0, cd = 0;
+  WEEKS.forEach(wk=>{
+    cc += STORIES.filter(s=>inWeek(s.created, wk)).length;
+    cd += STORIES.filter(s=>s.completed && s.status==='已发布' && inWeek(s.completed, wk)).length;
+    cumCreate.push(cc); cumDone.push(cd); wip.push(cc-cd);
+  });
+  new Chart(document.getElementById('cfdChart'), {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'创建数量(累计)', data:cumCreate, borderColor:'#1890ff', backgroundColor:'rgba(24,144,255,.08)', fill:true, tension:.25, pointRadius:4, borderWidth:2 },
+      { label:'进行中数量', data:wip, borderColor:'#faad14', backgroundColor:'rgba(250,173,20,.06)', fill:true, tension:.25, pointRadius:4, borderWidth:2, borderDash:[6,4] },
+      { label:'发布数量(累计)', data:cumDone, borderColor:'#52c41a', backgroundColor:'rgba(82,196,26,.05)', fill:true, tension:.25, pointRadius:4, borderWidth:2 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:10,font:{size:11},padding:10}},
+        tooltip:{callbacks:{afterLabel:(ctx)=>{ const i=ctx.dataIndex;
+          if(ctx.datasetIndex===0) return ` 本周新增 ${(cumCreate[i]-(i>0?cumCreate[i-1]:0))} 个`;
+          if(ctx.datasetIndex===2) return ` 本周发布 ${(cumDone[i]-(i>0?cumDone[i-1]:0))} 个`;
+          return ''; } }} },
+      scales:{ x:{grid:{display:false}}, y:{beginAtZero:true,ticks:{stepSize:2}} }
+    }
+  });
+}
+function renderFlowChart(){
+  const inflow = WEEKS.map(wk=>STORIES.filter(s=>inWeek(s.created, wk)).length);
+  const outflow = WEEKS.map(wk=>STORIES.filter(s=>s.completed && s.status==='已发布' && inWeek(s.completed, wk)).length);
+  new Chart(document.getElementById('flowChart'), {
+    type:'bar',
+    data:{ labels:WEEKS.map(w=>w.label), datasets:[
+      { label:'流入(新建)', data:inflow, backgroundColor:'#91caff', borderRadius:4 },
+      { label:'交付(已发布)', data:outflow, backgroundColor:'#95de64', borderRadius:4 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:10,font:{size:11},padding:10}},
+        tooltip:{callbacks:{afterLabel:(ctx)=>ctx.datasetIndex===0?` 积压 +${ctx.raw-(outflow[ctx.dataIndex]||0)}`:''}} },
+      scales:{ x:{grid:{display:false}}, y:{beginAtZero:true,ticks:{stepSize:1}} }
+    }
+  });
+}
+
+/* M2 结论：基于实时数据动态生成 */
+function renderCFDConclusion(){
+  const el = document.getElementById('cfdConclusion');
+  if(!el) return;
+  // 全部周累计流入/交付
+  const totalIn = STORIES.length;
+  const totalDone = STORIES.filter(s=>s.status==='已发布').length;
+  const wip = STORIES.filter(s=>s.status!=='已发布').length;
+  // 近两周（最后两个周切片）
+  const last2 = WEEKS.slice(-2);
+  const in2 = STORIES.filter(s=>last2.some(w=>inWeek(s.created,w))).length;
+  const done2 = STORIES.filter(s=>s.status==='已发布' && last2.some(w=>inWeek(s.completed,w))).length;
+  // 积压集中的环节（未发布需求按状态分组）
+  const backlog = {};
+  STORIES.filter(s=>s.status!=='已发布').forEach(s=>{
+    const st = s.status || '未分类';
+    backlog[st] = (backlog[st]||0)+1;
+  });
+  const top = Object.entries(backlog).sort((a,b)=>b[1]-a[1]).slice(0,2);
+  const topTxt = top.length ? top.map(([k,v])=>`「${k}」（${v} 条）`).join(' 与 ') : '暂无积压';
+  // 交付滞后判断
+  let pace = '交付与流入基本平衡';
+  if(done2 < in2) pace = '交付明显滞后于流入';
+  else if(done2 > in2) pace = '交付快于流入，积压正在消化';
+  const rangeTxt = last2.length===2 ? `${last2[0].label} ~ ${last2[1].label}` : (last2[0]?.label||'');
+  el.innerHTML = `近两周（${rangeTxt}）累计流入 ${in2} 条、交付 ${done2} 条，${pace}；当前在制品 ${wip} 条，积压集中于${topTxt}。`;
+}
+
+/* ============ M3 交付周期与各环节度量 ============ */
+function renderStageChart(stories){
+  // 各环节耗时分布：已发布需求在各状态的耗时 P95，按难度筛选统计；待研发实现阈值按难度区分
+  const labels = WORKFLOW.filter(s=>s!=='已发布');
+  const done = stories.filter(s=>s.status==='已发布');
+  const doneDiff = diffFilter==='全部' ? done : done.filter(s=>s.difficulty===diffFilter);
+
+  // 逐条已发布需求，用流转时间戳算各环节停留天数，再按环节求 P95
+  let data, noteTxt = '';
+  const hasLife = LIFE && LIFE.per_story;
+  const hasRealStages = doneDiff.some(s=>{ const info=hasLife&&LIFE.per_story[s.id]; return info && info.stages; });
+  if(hasLife && hasRealStages){
+    data = labels.map(st=>{
+      const days = doneDiff.map(s=>stageStayDays(s.id, st)).filter(d=>d>0);
+      return p95(days);
+    });
+  }else{
+    const deliveredAvg = LIFE && LIFE.stage_avg_delivered_hours;
+    const realCount = deliveredAvg ? labels.filter(st=>deliveredAvg[st]>0).length : 0;
+    if(LIFE && LIFE.stage_avg_delivered_mock && deliveredAvg){
+      data = labels.map(st=>deliveredAvg[st] ? Math.round(deliveredAvg[st]/24*10)/10 : 0);
+      noteTxt = '⚠ 已发布样本不足，本图为测试数据（用于效果演示）';
+    }else if(realCount >= 5){
+      data = labels.map(st=>deliveredAvg[st] ? Math.round(deliveredAvg[st]/24*10)/10 : 0);
+      noteTxt = '⚠ 仅有整体平均口径，暂无逐条流转数据，P95 不可算';
+    }else{
+      data = labels.map(st=>MOCK_STAGE_DAYS[st]||0);
+      noteTxt = '⚠ 真实已发布样本不足，当前展示为示例数据（仅演示效果）';
+    }
+  }
+  const stageNote = document.getElementById('stageNote');
+  if(stageNote) stageNote.textContent = noteTxt;
+
+  // 颜色：待研发实现按难度阈值，其余环节用通用阈值
+  const colors = labels.map((st,i)=>{
+    const v = data[i];
+    const thr = stageExpect(st, diffFilter==='全部'?'一般':diffFilter);
+    if(thr && v>thr) return '#ff4d4f';   // 超预期
+    if(v>5) return '#faad14';
+    return '#52c41a';
+  });
+  new Chart(document.getElementById('stageChart'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'耗时 P95(天)', data, backgroundColor:colors, borderRadius:6 }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const st=labels[c.dataIndex], v=c.raw;
+          const thr = stageExpect(st, diffFilter==='全部'?'一般':diffFilter);
+          let s=` ${v} 天`;
+          if(thr) s+=` / 预期 ${expectLabel(st, diffFilter==='全部'?'一般':diffFilter)}${v>thr?' ⚠超预期':''}`;
+          return s;
+        }}} },
+      scales:{ y:{beginAtZero:true,ticks:{callback:v=>v+'天'}} }
+    }
+  });
+}
+function renderCycleChart(stories){
+  // 交付周期分析：横轴按周，数轴为已发布需求交付周期 P95 值，虚线=对应难度基线
+  const done = stories.filter(s=>s.status==='已发布');
+  const doneDiff = diffFilter==='全部' ? done : done.filter(s=>s.difficulty===diffFilter);
+  // 各难度基线（全部时显示 14 天通用基线）
+  const baseline = diffFilter==='全部' ? CYCLETARGET : (DIFF_BASELINE[diffFilter]||CYCLETARGET);
+  const baselineLabel = diffFilter==='全部' ? `目标 ${CYCLETARGET} 天` : `${diffFilter}基线 ${baseline} 天`;
+
+  // 按周聚合：每周内已发布需求的交付周期 P95
+  const labels = WEEKS.map(w=>w.label);
+  const p95Data = WEEKS.map(wk=>{
+    const arr = doneDiff.filter(s=>s.completed && inWeek(s.completed, wk)).map(s=>cycleDays(s)).filter(d=>d>0);
+    return p95(arr);
+  });
+  const hasData = p95Data.some(v=>v>0);
+
+  const cycleNote = document.getElementById('cycleNote');
+  if(cycleNote){
+    const n = doneDiff.length;
+    cycleNote.textContent = diffFilter==='全部'
+      ? (n? `当前范围已发布 ${n} 个需求，按周展示 P95 交付周期` : '')
+      : (n? `难易程度「${diffFilter}」已发布 ${n} 个需求，基线 ${baseline} 天` : `难易程度「${diffFilter}」暂无已发布样本，仅展示基线 ${baseline} 天`);
+  }
+
+  new Chart(document.getElementById('cycleChart'), {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:`交付周期 P95${diffFilter==='全部'?'':`（${diffFilter}）`}`,
+        data: hasData?p95Data:labels.map(()=>0),
+        borderColor: diffFilter==='全部'?'#1890ff':(DIFF_COLOR[diffFilter]||'#1890ff'),
+        backgroundColor: (diffFilter==='全部'?'rgba(24,144,255,.10)':(DIFF_COLOR[diffFilter]||'#1890ff')+'22'),
+        fill:true, tension:.25, pointRadius:4, borderWidth:2,
+        spanGaps:true },
+      { label: baselineLabel, data: labels.map(()=>baseline),
+        borderColor:'#ff4d4f', borderDash:[6,4], borderWidth:1.5, pointRadius:0, fill:false },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:10,font:{size:11},padding:10}},
+        tooltip:{callbacks:{
+          label:c=>c.datasetIndex===0?` 交付周期 P95 ${c.raw} 天`:` 基线 ${baseline} 天`,
+          afterLabel:c=>c.datasetIndex===0&&c.raw>0?(c.raw>baseline?` ⚠超出基线 ${(c.raw-baseline).toFixed(1)} 天`:''):'' }} },
+      scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, suggestedMax: Math.max(baseline+4, ...p95Data, 10), ticks:{callback:v=>v+'天'}} }
+    }
+  });
+}
+
+/* ============ M4 插件工作流运营看板 ============ */
+const KB_ICONS = {'需求评审中':'🎨','待生态引入':'🌐','质量评测中':'🧪','产研验收中':'🔍','执行方案中':'📐','待研发实现':'💻','待其他评估':'🕐','评估完成待上线':'🚀','已发布':'✅'};
+const KB_CLS = {'需求评审中':'review','待生态引入':'eco','质量评测中':'qa','产研验收中':'accept','执行方案中':'plan','待研发实现':'dev','待其他评估':'other','评估完成待上线':'up','已发布':'done'};
+function renderKanban(stories){
+  document.getElementById('kanbanBoard').innerHTML = WORKFLOW.map(st=>{
+    // 已发布状态只保留本周发布的需求；历史已发布单独汇总在下方的说明行
+    let items = stories.filter(s=>s.status===st);
+    if(st==='已发布'){
+      items = items.filter(s=>s.completed && inWeek(s.completed, WEEKS[WEEKS.length-1]));
+    }
+    return `<div class="kanban-col" style="flex:1;min-width:150px;">
+      <div class="kb-header ${KB_CLS[st]}" style="background:${STYLE[st].bg};color:${STYLE[st].fg};">${KB_ICONS[st]} ${st} <span class="cnt">${items.length}</span></div>
+      ${items.map(s=>{
+        const stageAging = Math.round(stageStayDays(s.id, s.status));
+        const aging = stageAging>0 ? stageAging : daysBetween(s.created, now);
+        const exp = stageExpect(s.status, s.difficulty);
+        const over = exp && aging>exp;   // 当前环节超预期时限
+        const dueOver = s.due && s.status!=='已发布' && new Date(s.due)<now;
+        return `<div class="kb-item ${over?'kb-overdue':''}" style="border-left-color:${TYPE_COLORS[s.type]||'#1890ff'}">
+          <div class="kb-title">${s.name}${over?'<span class="risk-hi"> ⚠超时</span>':''}</div>
+          <div class="kb-meta">
+            <span><span class="kb-type">${s.type}</span>${s.creator}</span>
+            <span>${over?`<span class="risk-hi">${aging}天/${expectLabel(s.status, s.difficulty)}</span>`:(dueOver?'<span class="risk-hi">⚠逾期</span>':'⏱'+aging+'天')}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  // 下方说明行：历史已发布统计（不含本周发布）
+  const allDone = stories.filter(s=>s.status==='已发布');
+  const histDone = allDone.filter(s=>s.completed && !inWeek(s.completed, WEEKS[WEEKS.length-1]));
+  const historyEl = document.getElementById('kanbanHistory');
+  if(historyEl){
+    if(histDone.length){
+      const names = histDone.map(s=>s.name).join('、');
+      historyEl.innerHTML = `历史已发布 <b>${histDone.length}</b> 个需求：${names}`;
+    }else{
+      historyEl.innerHTML = '暂无历史已发布需求';
+    }
+  }
+}
+
+/* ============ M5 插件类型效率 ============ */
+function renderTypeDistChart(stories){
+  const types = {};
+  stories.forEach(s=>{ if(s.type) types[s.type]=(types[s.type]||0)+1; });
+  const labels = Object.keys(types).sort((a,b)=>types[b]-types[a]);
+  new Chart(document.getElementById('typeDistChart'), {
+    type:'bar',
+    data:{ labels: labels.length?labels:['暂无数据'], datasets:[{ label:'需求数', data: labels.length?labels.map(l=>types[l]):[0],
+      backgroundColor: labels.map(l=>TYPE_COLORS[l]||'#bfbfbf'), borderRadius:6 }]},
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} 个`}} },
+      scales:{ x:{beginAtZero:true,ticks:{stepSize:1}} }
+    }
+  });
+}
+function renderTypeFlowChart(stories){
+  const types = ['新接口-策略不可复用','新接口-策略可复用','数据类插件','关系表类插件'];
+  new Chart(document.getElementById('typeFlowChart'), {
+    type:'bar',
+    data:{ labels:types, datasets: WORKFLOW.map(st=>({
+      label:st,
+      data: types.map(t=>stories.filter(s=>s.type===t && s.status===st).length),
+      backgroundColor:(STYLE[st]||STYLE['需求评审中']).fg, borderRadius:3,
+      stack:'s',
+    }))},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:10,font:{size:10.5},padding:8}} },
+      scales:{ x:{stacked:true,grid:{display:false}}, y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}} }
+    }
+  });
+}
+
+/* ============ M6 质量与准时 ============ */
+function renderReworkList(){
+  const el = document.getElementById('reworkList');
+  if(!LIFE || !LIFE.rework_stories || !LIFE.rework_stories.length){
+    el.innerHTML = '<div style="color:#999;text-align:center;padding:40px 0;">✅ 无流程返工（状态回流）需求</div>';
+    return;
+  }
+  el.innerHTML = LIFE.rework_stories.map(rw=>`
+    <div style="border-left:3px solid #fa8c16;background:#fffbe6;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px;">
+      <div style="font-weight:600;">🔁 ${rw.name}</div>
+      <div style="color:#666;font-size:11px;margin-top:5px;">
+        ${rw.rework.map(r=>`<span style="display:inline-block;background:#fff;border:1px solid #ffd591;border-radius:4px;padding:2px 8px;margin:0 6px 4px 0;">${r.from} <b style="color:#fa8c16;">→</b> ${r.to} <b>×${r.count}</b> 次</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function renderRiskList(stories){
+  const risks = stories.filter(s=>s.due && s.status!=='已发布').map(s=>{
+    const d = daysBetween(now, s.due);
+    return {...s, leftDays: s.due<now? -daysBetween(s.due, now): d};
+  }).filter(s=>s.leftDays<=7).sort((a,b)=>a.leftDays-b.leftDays);
+  document.getElementById('riskList').innerHTML = risks.length ? risks.map(s=>`
+    <div style="border-left:3px solid ${s.leftDays<0?'#ff4d4f':'#faad14'};background:${s.leftDays<0?'#fff1f0':'#fffbe6'};border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px;">
+      <div style="font-weight:600;">${s.name}</div>
+      <div style="color:#999;font-size:11px;margin-top:2px;">
+        ${s.leftDays<0?`<b style="color:#ff4d4f">⚠ 已逾期 ${-s.leftDays} 天</b>`:`<b style="color:#fa8c16">${s.leftDays} 天后到期</b>`} · 截止 ${s.due} · 进度 ${s.progress||0}%
+      </div>
+    </div>`).join('') : '<div style="color:#999;text-align:center;padding:40px 0;">✅ 无 7 天内到期需求</div>';
+}
+
+/* ============ M7 人员负载 ============ */
+function renderPersonChart(stories){
+  // 口径：需求单上「插件产品/算法/生态/工程」四个挂载字段，某人出现在其中任一字段即视为涉及该需求；
+  // 同一需求内同一个人即使挂了多个角色也只计 1 个需求数
+  const biz = stories;
+  const persons = {};
+  biz.forEach(s=>{
+    const names = new Set();
+    ['product','algo','eco','eng'].forEach(key=>{
+      if(s[key]) s[key].split(';').filter(x=>x.trim()).forEach(n=>names.add(n.trim()));
+    });
+    names.forEach(n=>{
+      if(!persons[n]) persons[n]={name:n, roles:new Set(), count:0};
+      persons[n].count++;
+    });
+    ['product','algo','eco','eng'].forEach(key=>{
+      if(s[key]) s[key].split(';').filter(x=>x.trim()).forEach(n=>{
+        const nn=n.trim();
+        if(persons[nn]) persons[nn].roles.add(key);
+      });
+    });
+  });
+  const sorted = Object.values(persons).sort((a,b)=>b.count-a.count).slice(0,12);
+  const roleName = k=>({product:'产品',algo:'算法',eco:'生态',eng:'工程'})[k];
+  new Chart(document.getElementById('personChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(p=>p.name), datasets:[{
+      label:'涉及需求数', data:sorted.map(p=>p.count),
+      backgroundColor:sorted.map(p=>p.count>=6?'#ff4d4f':p.count>=3?'#faad14':'#52c41a'), borderRadius:6 }]},
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.raw} 个需求`,
+          afterBody:(items)=>[...new Set(sorted[items[0].dataIndex].roles)].map(r=>` ${roleName(r)}`).join(' ')}} },
+      scales:{ x:{beginAtZero:true,ticks:{stepSize:1}} }
+    }
+  });
+}
+
+/* ============ 明细表 ============ */
+/* 发布状态分类（互斥，覆盖全部需求）
+   逾期发布    ：已发布 && 实际发布时间晚于截止时间
+   正常发布    ：已发布 && 未逾期（历史已发布，非本周）
+   本周发布    ：已发布 && 实际发布时间在本周（本周切片）
+   下周待发布  ：未发布 && 截止时间在未来一周内（7 天）
+   下周后待发布：未发布 && 有截止时间 && 不在未来一周
+   待明确      ：未发布 && 无截止时间 */
+function publishStatus(s){
+  const isDone = s.status === '已发布';
+  if(isDone){
+    if(s.due && s.completed && new Date(s.completed) > new Date(s.due)) return '逾期发布';
+    if(s.completed && inWeek(s.completed, WEEKS[4])) return '本周发布';
+    return '正常发布';
+  }
+  if(!s.due) return '待明确';
+  const d = daysBetween(now, s.due);
+  if(d >= 0 && d <= 7) return '下周待发布';
+  return '下周后待发布';
+}
+/* 发布状态排序权重（与需求约定顺序一致） */
+const PUBLISH_ORDER = ['正常发布','逾期发布','本周发布','下周待发布','下周后待发布','待明确'];
+const PUBLISH_COLOR = { '正常发布':'#52c41a','逾期发布':'#ff4d4f','本周发布':'#722ed1','下周待发布':'#faad14','下周后待发布':'#13c2c2','待明确':'#999' };
+function renderTable(stories){
+  const rows = stories.slice().sort((a,b)=>{
+    const wa = PUBLISH_ORDER.indexOf(publishStatus(a));
+    const wb = PUBLISH_ORDER.indexOf(publishStatus(b));
+    return wa - wb;
+  });
+  document.getElementById('tableBody').innerHTML = rows.map(s=>{
+    const ps = publishStatus(s);
+    return `
+    <tr>
+      <td><a href="https://tapd.woa.com/tapd_fe/70186503/story/detail/${s.id}" target="_blank" style="color:#1890ff;text-decoration:none;">${s.id.slice(-8)}</a></td>
+      <td>${s.name}</td>
+      <td>${s.type?`<span class="kb-type" style="background:${TYPE_COLORS[s.type]}22;color:${TYPE_COLORS[s.type]||'#666'};">${s.type}</span>`:'-'}</td>
+      <td><span class="badge" style="background:${STYLE[s.status]?.bg||'#f0f0f0'};color:${STYLE[s.status]?.fg||'#666'};">${s.status}</span></td>
+      <td>${s.creator}</td>
+      <td>${s.created}</td>
+      <td>${s.prio?`<span class="badge low">${s.prio}</span>`:'-'}</td>
+      <td>${s.begin||'-'} / ${s.due||'-'}</td>
+      <td>${s.progress? s.progress+'%':'-'}</td>
+      <td>${s.completed||'-'}</td>
+      <td><span class="badge" style="background:${PUBLISH_COLOR[ps]}22;color:${PUBLISH_COLOR[ps]};">${ps}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ============ B 人员闲忙图（task 排期池） ============ */
+function renderScheduleChart(){
+  const el = document.getElementById('scheduleGantt');
+  const note = document.getElementById('scheduleNote');
+  const split = str => (str||'').split(';').map(x=>x.trim()).filter(Boolean);
+  const tasks = (TASKS && TASKS.scheduled_tasks) ? TASKS.scheduled_tasks : [];
+  const dated = tasks.filter(t=>t.begin && t.begin!=='0000-00-00' && t.due && t.due!=='0000-00-00');
+  if(!dated.length){
+    note.textContent = '暂无带排期（begin ~ due）的未完成任务';
+    el.innerHTML = '<div style="color:#999;text-align:center;padding:40px 0;">暂无排期数据</div>';
+    return;
+  }
+  // 时间范围：今天 ~ 未来 30 天（只展示未来一个月）
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d0 = new Date(today);
+  const d1 = new Date(today); d1.setDate(d1.getDate()+30);
+  const totalDays = 30;
+  // 只统计与展示范围有交集的任务（begin<=d1 且 due>=d0）
+  const visible = dated.filter(t=> new Date(t.begin)<=d1 && new Date(t.due)>=d0);
+  if(!visible.length){
+    note.textContent = '未来 30 天暂无带排期的未完成任务';
+    el.innerHTML = '<div style="color:#999;text-align:center;padding:40px 0;">未来 30 天暂无排期数据</div>';
+    return;
+  }
+  // 人员聚合（无负责人归入「未指派」）
+  const pMap = {};
+  visible.forEach(t=>{
+    const owners = split(t.owner).length ? split(t.owner) : ['未指派'];
+    owners.forEach(n=>{ if(!pMap[n]) pMap[n]=[]; pMap[n].push(t); });
+  });
+  const persons = Object.keys(pMap).sort((a,b)=>a.localeCompare(b));
+  const fmt = d=>`${d.getMonth()+1}/${d.getDate()}`;
+  const pos = d=>Math.min(99.5, Math.max(0,(new Date(d)-d0)/86400000/totalDays*100));
+  const wdt = (a,b)=>Math.max(0.8, Math.min(100-pos(a), (new Date(b)-new Date(a))/86400000/totalDays*100));
+  // 每周一竖线（周界）+ 每天细分竖线
+  const weekLines = [];
+  for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)){ if(d.getDay()===1) weekLines.push(new Date(d)); }
+  // 每天细分竖线：周界（周一）稍深、其余天用浅虚线，方便查看「哪天到哪天」
+  const dayLines = [];
+  for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)) dayLines.push(new Date(d));
+  const weekMark = (h)=>weekLines.map(d=>`<div style="position:absolute;left:${pos(d)}%;top:0;bottom:0;border-left:1px solid #c9c9c9;pointer-events:none;"></div>`).join('');
+  const dayMark = (h)=>dayLines.map(d=>`<div style="position:absolute;left:${pos(d)}%;top:0;bottom:0;border-left:1px dashed #f0f0f0;pointer-events:none;"></div>`).join('');
+  const todayMark = h=>`<div style="position:absolute;left:${pos(today)}%;top:0;bottom:0;border-left:2px solid #ff4d4f;opacity:.55;pointer-events:none;z-index:1;" title="今天"></div>`;
+
+  let html = '<div class="sched-scroll">';
+  // 表头
+  html += `<div class="sched-row" style="grid-template-columns:150px 1fr;">
+    <div class="sched-cell sched-name" style="font-weight:600;">人员</div>
+    <div style="position:relative;height:30px;border-bottom:1px solid var(--border);">
+      ${dayMark()}
+      ${weekMark()}
+      ${weekLines.map(d=>`<span style="position:absolute;left:${pos(d)}%;top:3px;font-size:10px;color:#999;transform:translateX(3px);white-space:nowrap;">${fmt(d)} 周</span>`).join('')}
+    </div>
+  </div>`;
+  // 每人一行
+  persons.forEach(n=>{
+    const ts = pMap[n].slice().sort((a,b)=>(a.begin||'').localeCompare(b.begin||''));
+    html += `<div class="sched-row" style="grid-template-columns:150px 1fr;border-bottom:1px solid #f0f0f0;">
+      <div class="sched-cell sched-name" style="font-weight:600;">${n}<span class="sched-cnt">${ts.length}</span></div>
+      <div style="position:relative;height:40px;">
+        ${dayMark()}
+        ${weekMark()}
+        ${ts.map(t=>{
+          const left=pos(t.begin), w=wdt(t.begin,t.due);
+          const bd=new Date(t.begin), ed=new Date(t.due);
+          // 状态：ed<=d0(含今天到期)算已完成/已结束；bd>d0 未开始；其余进行中
+          const cls = ed<=d0 ? 'sched-bar done' : (bd>d0 ? 'sched-bar' : 'sched-bar doing');
+          return `<div class="${cls}" style="left:${left}%;width:${w}%;" title="${t.name}（${fmt(bd)}~${fmt(ed)}）"></div>`;
+        }).join('')}
+        ${todayMark()}
+      </div>
+    </div>`;
+  });
+  // 图例
+  html += `<div class="sched-legend" style="padding:10px 0 2px 150px;">
+    <span class="lg"><span class="sw" style="background:#1890ff;"></span>未开始</span>
+    <span class="lg"><span class="sw" style="background:#fa8c16;"></span>进行中</span>
+    <span class="lg"><span class="sw" style="background:#d9d9d9;"></span>已过期</span>
+    <span class="lg"><span style="width:2px;height:10px;background:#ff4d4f;display:inline-block;"></span>今天</span>
+    <span class="lg"><span style="width:2px;height:10px;background:#c9c9c9;display:inline-block;"></span>周界（周一）</span>
+    <span class="lg"><span style="width:2px;height:10px;background:#f0f0f0;border:1px dashed #d9d9d9;display:inline-block;"></span>按天竖线</span>
+  </div>`;
+  html += '</div>';
+
+  el.innerHTML = html;
+  note.textContent = `未来 30 天共 ${visible.length} 条带排期的未完成任务（排期池 ${TASKS? TASKS.active_tasks.length : '?'} 条）· 时间范围 ${fmt(d0)} ~ ${fmt(d1)} · 顶部按周、每日细分竖线便于查看「哪天到哪天」· 红竖线=今天 · 数据生成于 ${TASKS? TASKS.fetched_at||'-' : '-'}`;
+}
+
+/* ============ 刷新 ============ */
+function destroyCharts(){
+  ['cfdChart','flowChart','stageChart','cycleChart','typeDistChart','typeFlowChart','personChart'].forEach(id=>{
+    const c=Chart.getChart(id); if(c) c.destroy();
+  });
+  const line=document.getElementById('cycleTargetLine'); if(line) line.remove();
+}
+function refresh(){
+  const stories = getFiltered();
+  renderKPI(stories);
+  renderStageChart(stories);
+  renderCycleChart(stories);
+  renderKanban(stories);
+  // M5 已隐藏，暂不渲染
+  if(document.getElementById('moduleM5') && document.getElementById('moduleM5').style.display!=='none'){
+    renderTypeDistChart(stories);
+    renderTypeFlowChart(stories);
+  }
+  renderReworkList();
+  renderRiskList(stories);
+  renderPersonChart(stories);
+  renderTable(stories);
+  document.getElementById('updateTime').textContent = (LIFE && LIFE.generated_at) ? LIFE.generated_at : new Date().toLocaleString('zh-CN');
+}
+function fullRefresh(){
+  now = new Date();        // 动态当前时间，随每次刷新更新
+  WEEKS = buildWeeks(5);   // 本周跟随真实日期滚动
+  destroyCharts();
+  renderCFDChart();
+  renderFlowChart();
+  renderCFDConclusion();
+  refresh();
+}
+
+/* 事件 */
+document.querySelectorAll('#diffFilter button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#diffFilter button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    diffFilter = btn.dataset.v;
+    // 难度筛选仅作用于 M3：只销毁并重绘 M3 的两张图，不触碰 M2/M7 等其它图表
+    ['stageChart','cycleChart'].forEach(id=>{ const c=Chart.getChart(id); if(c) c.destroy(); });
+    const line=document.getElementById('cycleTargetLine'); if(line) line.remove();
+    renderStageChart(getFiltered());
+    renderCycleChart(getFiltered());
+  });
+});
+
+/* 加载状态流转时间戳数据（life_metrics.json）与 task 排期数据（tasks_data.json） */
+async function reloadData(){
+  const btn = document.getElementById('refreshBtn');
+  const st = document.getElementById('refreshStatus');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 刷新中…'; }
+  if(st) st.textContent = '正在从 TAPD 拉取最新状态流转与排期数据…';
+  try{
+    const [lr, tr] = await Promise.all([
+      fetch('life_metrics.json', { cache:'no-store' }),
+      fetch('tasks_data.json', { cache:'no-store' })
+    ]);
+    if(lr.ok){ LIFE = await lr.json(); }
+    if(tr.ok){ TASKS = await tr.json(); }
+  }catch(e){ /* 静默降级 */ }
+  // 动态构建需求列表：优先使用 life_metrics.json 的 stories（已排除测试需求），失败则用内置兜底
+  if(LIFE && LIFE.stories && LIFE.stories.length){
+    const fallbackDiff = {};
+    STORIES.forEach(s=>{ fallbackDiff[s.id] = s.difficulty; });
+    STORIES = LIFE.stories.map(s=>{
+      // 难易程度：TAPD custom_field_99 为空时用内置兜底值
+      if(!s.difficulty && fallbackDiff[s.id]) s.difficulty = fallbackDiff[s.id];
+      if(!s.type) s.type = '未分类';
+      return s;
+    });
+  }
+  document.getElementById('dataNote').textContent = LIFE && LIFE.generated_at
+    ? '数据源：插件甘特图（已排除测试需求）· 状态流转时间戳'
+    : '数据源：TAPD 需求静态字段（状态流转时间戳未加载，各环节耗时为近似口径）';
+  fullRefresh();
+  renderScheduleChart();
+  if(btn){ btn.disabled = false; btn.textContent = '🔄 刷新数据'; }
+  if(st) st.textContent = LIFE && LIFE.generated_at
+    ? '✅ 已刷新 · 流转数据生成于 ' + LIFE.generated_at + (TASKS? ` · 排期数据生成于 ${TASKS.fetched_at||'-'}`:'')
+    : '⚠️ 未获取到流转数据，当前为近似口径';
+}
+document.getElementById('refreshBtn').addEventListener('click', reloadData);
+reloadData();
+setInterval(reloadData, 5*60*1000);  // 每 5 分钟自动刷新，与每小时数据更新匹配（now/本周/更新时间同步滚动）
+</script>
+</body>
+</html>
